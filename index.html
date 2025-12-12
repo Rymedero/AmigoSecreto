@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Amigo Secreto Navideño</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { box-sizing: border-box; }
+
+    @keyframes snowfall {
+      0% { transform: translateY(-10px) translateX(0); }
+      100% { transform: translateY(100vh) translateX(20px); }
+    }
+
+    .snowflake {
+      position: fixed;
+      top: -10px;
+      color: white;
+      font-size: 1.5em;
+      animation: snowfall linear infinite;
+      pointer-events: none;
+      z-index: 1000;
+    }
+
+    @keyframes zoomFloat {
+      0% { transform: scale(0.8); opacity: 0; }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px) scale(1); }
+      50% { transform: translateY(-10px) scale(1.02); }
+    }
+
+    .carousel-content { animation: zoomFloat 0.6s ease-out, float 3s ease-in-out infinite 0.6s; }
+    .family-carousel-content { animation: zoomFloat 0.6s ease-out, float 3s ease-in-out infinite 0.6s; }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+ </head>
+
+ <body class="h-full">
+  <div id="app" class="w-full h-full overflow-auto"><!-- Contenido generado por JavaScript --></div>
+
+  <script>
+    const defaultConfig = {
+      background_color: "#8B0000",
+      card_background: "#B22222",
+      primary_color: "#FFD700",
+      accent_color: "#FFA500",
+      text_color: "#FFFFFF",
+      font_family: "Georgia",
+      font_size: 16,
+      titulo_principal: "🎄 Amigo Secreto Navideño 🎄",
+      nombre_familia: "Familia García",
+      descripcion_familia: "Una familia unida que ama celebrar la Navidad juntos, compartiendo risas, amor y momentos inolvidables cada año. 🎅❤️",
+      fecha_sorteo: "24 de diciembre, 2024",
+      monto_regalo: "$500 - $1000 MXN",
+      lugar_entrega: "Casa de la Abuela"
+    };
+
+    let currentSlide = 0;
+    let currentFamilySlide = 0;
+
+    const familyPhotos = [
+      { emoji: "🎄", text: "Navidad en Familia" },
+      { emoji: "🎅", text: "Santa visitando" },
+      { emoji: "🎁", text: "Intercambio de Regalos" },
+      { emoji: "🍽️", text: "Cena Navideña" },
+      { emoji: "⭐", text: "Decorando el Árbol" }
+    ];
+
+    const familyMembers = [
+      { emoji: "👨‍👩‍👧‍👦", text: "Familia reunida", description: "Todos juntos en Navidad" },
+      { emoji: "👵", text: "Abuela", description: "El corazón de la familia" },
+      { emoji: "👴", text: "Abuelo", description: "Contador de historias navideñas" },
+      { emoji: "👨‍👩‍👧", text: "Los padres", description: "Organizadores del intercambio" },
+      { emoji: "👧👦", text: "Los primos", description: "La alegría de la reunión" },
+      { emoji: "🐕", text: "Nuestra mascota", description: "El miembro más peludo" }
+    ];
+
+    // Estado
+    let participantes = [];
+    let isLoading = false;               // loading del formulario de inscripción
+    let adminPassCache = "";             // para no perder lo que escribes al re-render
+    let ultimoSorteoId = "";             // guarda el último sorteo_id creado en esta sesión
+    let adminActionLoading = false;      // loading para acciones admin
+
+    // Endpoints Netlify Functions
+    const API = {
+      list: "/.netlify/functions/participants-list",
+      add: "/.netlify/functions/participants-add",
+      del: "/.netlify/functions/participants-delete",
+      draw: "/.netlify/functions/draw",
+      send: "/.netlify/functions/send-emails"
+    };
+
+    async function fetchJSON(url, options = {}) {
+      const resp = await fetch(url, options);
+      let data = null;
+      try { data = await resp.json(); } catch (_) { /* ignore */ }
+      if (!resp.ok) {
+        const msg = data?.error || "Ocurrió un error";
+        throw new Error(msg);
+      }
+      return data;
+    }
+
+    async function refrescarParticipantesDesdeServidor() {
+      const data = await fetchJSON(API.list);
+      participantes = data.participantes || [];
+    }
+
+    async function inicializarApp() {
+      try {
+        await refrescarParticipantesDesdeServidor();
+      } catch (e) {
+        mostrarMensaje("No se pudo cargar la lista. Revisa tu despliegue en Netlify.", "error");
+      }
+      renderApp();
+    }
+
+    async function agregarParticipante(event) {
+      event.preventDefault();
+
+      if (participantes.length >= 999) {
+        mostrarMensaje("Se ha alcanzado el límite máximo de 999 participantes", "error");
+        return;
+      }
+
+      const nombre = document.getElementById("nombre").value.trim();
+      const email = document.getElementById("email").value.trim();
+
+      if (!nombre || !email) {
+        mostrarMensaje("Por favor completa todos los campos", "error");
+        return;
+      }
+
+      // Check rápido (no definitivo) para UX, la validación real la hace el backend
+      const emailExisteLocal = participantes.some(p => (p.email || "").toLowerCase() === email.toLowerCase());
+      if (emailExisteLocal) {
+        mostrarMensaje("Este correo ya está registrado", "error");
+        return;
+      }
+
+      isLoading = true;
+      renderApp();
+
+      try {
+        await fetchJSON(API.add, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nombre, email })
+        });
+
+        document.getElementById("formulario-inscripcion").reset();
+        mostrarMensaje("¡Inscripción exitosa! 🎉", "success");
+
+        await refrescarParticipantesDesdeServidor();
+      } catch (e) {
+        mostrarMensaje(e.message || "No se pudo inscribir", "error");
+      } finally {
+        isLoading = false;
+        renderApp();
+      }
+    }
+
+    async function eliminarParticipante(participante) {
+      // Seguridad: solo admin
+      const pass = prompt("Clave admin para eliminar:");
+      if (!pass) return;
+
+      const botonEliminar = document.querySelector(`[data-id="${participante.id}"]`);
+      if (botonEliminar) {
+        botonEliminar.disabled = true;
+        botonEliminar.textContent = "Eliminando...";
+      }
+
+      try {
+        await fetchJSON(API.del, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pass, id: participante.id })
+        });
+
+        mostrarMensaje("Participante eliminado ✅", "success");
+        await refrescarParticipantesDesdeServidor();
+      } catch (e) {
+        mostrarMensaje(e.message || "No se pudo eliminar", "error");
+      } finally {
+        renderApp();
+      }
+    }
+
+    function mostrarMensaje(texto, tipo) {
+      const mensaje = document.createElement("div");
+      mensaje.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg text-white font-semibold z-50 ${
+        tipo === "success" ? "bg-green-600" : "bg-red-600"
+      }`;
+      mensaje.textContent = texto;
+      document.body.appendChild(mensaje);
+
+      setTimeout(() => { mensaje.remove(); }, 3000);
+    }
+
+    function crearCoposDeNieve() {
+      const container = document.getElementById("snowflakes-container");
+      if (!container) return;
+
+      container.innerHTML = "";
+
+      for (let i = 0; i < 20; i++) {
+        const snowflake = document.createElement("div");
+        snowflake.className = "snowflake";
+        snowflake.textContent = "❄";
+        snowflake.style.left = Math.random() * 100 + "%";
+        snowflake.style.animationDuration = (Math.random() * 3 + 2) + "s";
+        snowflake.style.animationDelay = Math.random() * 2 + "s";
+        snowflake.style.opacity = Math.random() * 0.6 + 0.4;
+        container.appendChild(snowflake);
+      }
+    }
+
+    async function sortearAmigoSecreto() {
+      const passEl = document.getElementById("admin-pass");
+      const pass = (passEl?.value || "").trim();
+      if (!pass) return mostrarMensaje("Ingresa la clave admin", "error");
+
+      adminPassCache = pass;
+
+      const btn = document.getElementById("btn-sortear");
+      if (btn) { btn.disabled = true; btn.textContent = "🎲 Sorteando..."; }
+      adminActionLoading = true;
+
+      try {
+        const data = await fetchJSON(API.draw, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pass })
+        });
+
+        ultimoSorteoId = data.sorteo_id || "";
+        mostrarMensaje("Sorteo realizado ✅", "success");
+      } catch (e) {
+        mostrarMensaje(e.message || "No se pudo sortear", "error");
+      } finally {
+        adminActionLoading = false;
+        renderApp();
+      }
+    }
+
+    async function enviarCorreos() {
+      const passEl = document.getElementById("admin-pass");
+      const pass = (passEl?.value || "").trim();
+      if (!pass) return mostrarMensaje("Ingresa la clave admin", "error");
+
+      adminPassCache = pass;
+
+      // Si no hay sorteo id en memoria, permite que lo peguen
+      let sorteoId = ultimoSorteoId;
+      if (!sorteoId) {
+        const manual = prompt("Pega el sorteo_id (te lo da el botón Sortear):");
+        if (!manual) return;
+        sorteoId = manual.trim();
+      }
+
+      const btn = document.getElementById("btn-enviar");
+      if (btn) { btn.disabled = true; btn.textContent = "📩 Enviando..."; }
+      adminActionLoading = true;
+
+      try {
+        const data = await fetchJSON(API.send, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pass, sorteo_id: sorteoId })
+        });
+
+        mostrarMensaje(`Correos enviados: ${data.enviados ?? 0}`, "success");
+      } catch (e) {
+        mostrarMensaje(e.message || "No se pudieron enviar correos", "error");
+      } finally {
+        adminActionLoading = false;
+        renderApp();
+      }
+    }
+
+    function renderApp() {
+      const config = defaultConfig;
+      const baseSize = config.font_size;
+      const customFont = config.font_family;
+      const fontStack = `${customFont}, Georgia, serif`;
+
+      const app = document.getElementById("app");
+      app.style.backgroundColor = config.background_color;
+      app.style.color = config.text_color;
+      app.style.fontFamily = fontStack;
+      app.style.minHeight = "100%";
+
+      app.innerHTML = `
+        <div id="snowflakes-container"></div>
+
+        <div class="max-w-4xl mx-auto px-4 py-8">
+          <!-- Encabezado -->
+          <div class="text-center mb-8">
+            <h1 id="titulo" class="font-bold mb-2" style="font-size: ${baseSize * 2.5}px; color: ${config.primary_color}; font-family: ${fontStack};">
+              ${config.titulo_principal}
+            </h1>
+            <p id="subtitulo" class="font-semibold" style="font-size: ${baseSize * 1.3}px; font-family: ${fontStack};">
+              ${config.nombre_familia}
+            </p>
+          </div>
+
+          <!-- Carrusel de Fotos -->
+          <div class="rounded-xl p-6 mb-8 shadow-lg overflow-hidden" style="background-color: ${config.card_background};">
+            <div class="relative">
+              <div id="carousel-container" class="flex items-center justify-center" style="height: 300px;">
+                <div class="text-center carousel-content">
+                  <div style="font-size: 120px;" id="carousel-emoji">${familyPhotos[0].emoji}</div>
+                  <p class="mt-4 font-semibold" style="font-size: ${baseSize * 1.2}px; color: ${config.primary_color}; font-family: ${fontStack};" id="carousel-text">
+                    ${familyPhotos[0].text}
+                  </p>
+                </div>
+              </div>
+              <button id="prev-btn" class="absolute left-0 top-1/2 transform -translate-y-1/2 px-4 py-2 rounded-r-lg font-bold transition-all" style="background-color: ${config.primary_color}; color: #000; font-size: ${baseSize * 1.2}px;">
+                ❮
+              </button>
+              <button id="next-btn" class="absolute right-0 top-1/2 transform -translate-y-1/2 px-4 py-2 rounded-l-lg font-bold transition-all" style="background-color: ${config.primary_color}; color: #000; font-size: ${baseSize * 1.2}px;">
+                ❯
+              </button>
+            </div>
+            <div class="flex justify-center gap-2 mt-4" id="carousel-dots">
+              ${familyPhotos.map((_, index) => `
+                <button class="carousel-dot w-3 h-3 rounded-full transition-all" data-index="${index}" style="background-color: ${index === 0 ? config.primary_color : config.text_color}40;"></button>
+              `).join('')}
+            </div>
+          </div>
+
+          <!-- Sobre la Familia -->
+          <div class="rounded-xl p-6 mb-8 shadow-lg" style="background-color: ${config.card_background || defaultConfig.card_background};">
+            <h2 class="font-bold mb-4 flex items-center gap-2" style="font-size: ${baseSize * 1.5}px; color: ${config.primary_color || defaultConfig.primary_color}; font-family: ${fontStack};">
+              ❤️ Sobre Nuestra Familia
+            </h2>
+            <p style="font-size: ${baseSize}px; font-family: ${fontStack}; line-height: 1.6;">
+              ${config.descripcion_familia || defaultConfig.descripcion_familia}
+            </p>
+          </div>
+
+          <!-- Carrusel de Fotos Familiares -->
+          <div class="rounded-xl p-6 mb-8 shadow-lg overflow-hidden" style="background-color: ${config.card_background || defaultConfig.card_background};">
+            <h2 class="font-bold mb-4 flex items-center gap-2" style="font-size: ${baseSize * 1.5}px; color: ${config.primary_color || defaultConfig.primary_color}; font-family: ${fontStack};">
+              📸 Nuestra Familia
+            </h2>
+            <div class="relative">
+              <div id="family-carousel-container" class="flex items-center justify-center rounded-lg" style="height: 400px; background-color: ${config.background_color || defaultConfig.background_color};">
+                <div class="text-center p-8 family-carousel-content">
+                  <div style="font-size: 100px;" id="family-carousel-emoji">👨‍👩‍👧‍👦</div>
+                  <p class="mt-4 font-semibold" style="font-size: ${baseSize * 1.2}px; color: ${config.primary_color || defaultConfig.primary_color}; font-family: ${fontStack};" id="family-carousel-text">
+                    Familia reunida
+                  </p>
+                  <p class="mt-2" style="font-size: ${baseSize * 0.9}px; opacity: 0.8; font-family: ${fontStack};" id="family-carousel-description">
+                    Puedes agregar tus propias fotos familiares aquí
+                  </p>
+                </div>
+              </div>
+              <button id="family-prev-btn" class="absolute left-0 top-1/2 transform -translate-y-1/2 px-4 py-2 rounded-r-lg font-bold transition-all" style="background-color: ${config.primary_color || defaultConfig.primary_color}; color: #000; font-size: ${baseSize * 1.2}px;">
+                ❮
+              </button>
+              <button id="family-next-btn" class="absolute right-0 top-1/2 transform -translate-y-1/2 px-4 py-2 rounded-l-lg font-bold transition-all" style="background-color: ${config.primary_color || defaultConfig.primary_color}; color: #000; font-size: ${baseSize * 1.2}px;">
+                ❯
+              </button>
+            </div>
+            <div class="flex justify-center gap-2 mt-4" id="family-carousel-dots">
+              ${familyMembers.map((_, index) => `
+                <button class="family-carousel-dot w-3 h-3 rounded-full transition-all" data-index="${index}" style="background-color: ${index === 0 ? config.primary_color : config.text_color}40;"></button>
+              `).join('')}
+            </div>
+          </div>
+
+          <!-- Reglas del juego -->
+          <div class="rounded-xl p-6 mb-8 shadow-lg" style="background-color: ${config.card_background || defaultConfig.card_background};">
+            <h2 class="font-bold mb-4 flex items-center gap-2" style="font-size: ${baseSize * 1.5}px; color: ${config.primary_color || defaultConfig.primary_color}; font-family: ${fontStack};">
+              📜 Reglas del Juego
+            </h2>
+            <ul class="space-y-2" style="font-size: ${baseSize}px; font-family: ${fontStack};">
+              <li class="flex items-start gap-2">
+                <span style="color: ${config.accent_color || defaultConfig.accent_color};">✓</span>
+                <span>El sorteo se realizará automáticamente el: <strong>${config.fecha_sorteo || defaultConfig.fecha_sorteo}</strong></span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span style="color: ${config.accent_color || defaultConfig.accent_color};">✓</span>
+                <span>Recibirás un correo con el nombre de tu amigo secreto</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span style="color: ${config.accent_color || defaultConfig.accent_color};">✓</span>
+                <span>Monto sugerido: <strong>${config.monto_regalo || defaultConfig.monto_regalo}</strong></span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span style="color: ${config.accent_color || defaultConfig.accent_color};">✓</span>
+                <span>Lugar de entrega: <strong>${config.lugar_entrega || defaultConfig.lugar_entrega}</strong></span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span style="color: ${config.accent_color || defaultConfig.accent_color};">✓</span>
+                <span>Mantén el secreto hasta el día del intercambio 🤫</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Formulario de inscripción -->
+          <div class="rounded-xl p-6 mb-8 shadow-lg" style="background-color: ${config.card_background || defaultConfig.card_background};">
+            <h2 class="font-bold mb-4" style="font-size: ${baseSize * 1.5}px; color: ${config.primary_color || defaultConfig.primary_color}; font-family: ${fontStack};">
+              🎁 Inscríbete Aquí
+            </h2>
+            <form id="formulario-inscripcion" class="space-y-4">
+              <div>
+                <label for="nombre" class="block mb-1 font-semibold" style="font-size: ${baseSize * 0.9}px; font-family: ${fontStack};">
+                  Nombre completo
+                </label>
+                <input
+                  type="text"
+                  id="nombre"
+                  required
+                  class="w-full px-4 py-2 rounded-lg border-2 focus:outline-none"
+                  style="font-size: ${baseSize}px; background-color: ${config.background_color || defaultConfig.background_color}; color: ${config.text_color || defaultConfig.text_color}; border-color: ${config.primary_color || defaultConfig.primary_color}; font-family: ${fontStack};"
+                  placeholder="Ej: María García"
+                  ${isLoading ? 'disabled' : ''}
+                >
+              </div>
+              <div>
+                <label for="email" class="block mb-1 font-semibold" style="font-size: ${baseSize * 0.9}px; font-family: ${fontStack};">
+                  Correo electrónico
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  required
+                  class="w-full px-4 py-2 rounded-lg border-2 focus:outline-none"
+                  style="font-size: ${baseSize}px; background-color: ${config.background_color || defaultConfig.background_color}; color: ${config.text_color || defaultConfig.text_color}; border-color: ${config.primary_color || defaultConfig.primary_color}; font-family: ${fontStack};"
+                  placeholder="tu@email.com"
+                  ${isLoading ? 'disabled' : ''}
+                >
+              </div>
+              <button
+                type="submit"
+                class="w-full py-3 rounded-lg font-bold shadow-lg transition-all"
+                style="font-size: ${baseSize * 1.1}px; background-color: ${config.primary_color || defaultConfig.primary_color}; color: white; font-family: ${fontStack};"
+                ${isLoading ? 'disabled' : ''}
+              >
+                ${isLoading ? '⏳ Inscribiendo...' : '✨ Inscribirme'}
+              </button>
+            </form>
+          </div>
+
+          <!-- Lista de participantes -->
+          <div class="rounded-xl p-6 shadow-lg" style="background-color: ${config.card_background || defaultConfig.card_background};">
+            <h2 class="font-bold mb-4" style="font-size: ${baseSize * 1.5}px; color: ${config.primary_color || defaultConfig.primary_color}; font-family: ${fontStack};">
+              👥 Participantes (${participantes.length})
+            </h2>
+            <div id="lista-participantes" class="space-y-2">
+              ${participantes.length === 0 ?
+                `<p class="text-center py-4" style="font-size: ${baseSize}px; opacity: 0.7; font-family: ${fontStack};">
+                  Aún no hay participantes. ¡Sé el primero en inscribirte! 🎅
+                </p>` :
+                participantes.map(p => `
+                  <div class="flex items-center justify-between p-3 rounded-lg" style="background-color: ${config.background_color || defaultConfig.background_color};">
+                    <div>
+                      <p class="font-semibold" style="font-size: ${baseSize}px; font-family: ${fontStack};">
+                        ${p.nombre}
+                      </p>
+                      <p style="font-size: ${baseSize * 0.85}px; opacity: 0.7; font-family: ${fontStack};">
+                        ${p.email}
+                      </p>
+                    </div>
+                    <button
+                      data-id="${p.id}"
+                      class="px-3 py-1 rounded text-white font-semibold transition-all"
+                      style="font-size: ${baseSize * 0.85}px; background-color: ${config.primary_color || defaultConfig.primary_color}; font-family: ${fontStack};"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                `).join('')
+              }
+            </div>
+          </div>
+
+          <!-- Panel Admin (misma estética) -->
+          <div class="rounded-xl p-6 mt-8 shadow-lg" style="background-color: ${config.card_background || defaultConfig.card_background};">
+            <h2 class="font-bold mb-4" style="font-size: ${baseSize * 1.5}px; color: ${config.primary_color || defaultConfig.primary_color}; font-family: ${fontStack};">
+              🔐 Panel Admin
+            </h2>
+
+            <div class="space-y-4">
+              <div>
+                <label for="admin-pass" class="block mb-1 font-semibold" style="font-size: ${baseSize * 0.9}px; font-family: ${fontStack};">
+                  Clave admin
+                </label>
+                <input
+                  type="password"
+                  id="admin-pass"
+                  class="w-full px-4 py-2 rounded-lg border-2 focus:outline-none"
+                  style="font-size: ${baseSize}px; background-color: ${config.background_color || defaultConfig.background_color}; color: ${config.text_color || defaultConfig.text_color}; border-color: ${config.primary_color || defaultConfig.primary_color}; font-family: ${fontStack};"
+                  placeholder="Ingresa la clave"
+                  value="${adminPassCache.replace(/"/g, "&quot;")}"
+                  ${adminActionLoading ? "disabled" : ""}
+                >
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  id="btn-sortear"
+                  class="w-full py-3 rounded-lg font-bold shadow-lg transition-all"
+                  style="font-size: ${baseSize * 1.05}px; background-color: ${config.primary_color || defaultConfig.primary_color}; color: white; font-family: ${fontStack};"
+                  ${adminActionLoading ? "disabled" : ""}
+                >
+                  🎲 Sortear
+                </button>
+
+                <button
+                  id="btn-enviar"
+                  class="w-full py-3 rounded-lg font-bold shadow-lg transition-all"
+                  style="font-size: ${baseSize * 1.05}px; background-color: ${config.primary_color || defaultConfig.primary_color}; color: white; font-family: ${fontStack};"
+                  ${adminActionLoading ? "disabled" : ""}
+                >
+                  📩 Enviar correos
+                </button>
+              </div>
+
+              <div class="p-3 rounded-lg" style="background-color: ${config.background_color || defaultConfig.background_color};">
+                <p class="font-semibold" style="font-size: ${baseSize * 0.95}px; font-family: ${fontStack};">
+                  Sorteo ID:
+                  <span style="opacity: 0.85; font-weight: normal;">
+                    ${ultimoSorteoId ? ultimoSorteoId : "Aún no has sorteado"}
+                  </span>
+                </p>
+                <p style="font-size: ${baseSize * 0.85}px; opacity: 0.75; font-family: ${fontStack};">
+                  (Si recargas la página y no aparece, puedes enviarlo pegándolo cuando te lo pida.)
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Nota sobre envío de correos -->
+          <div class="mt-8 p-4 rounded-lg" style="background-color: ${config.accent_color || defaultConfig.accent_color}20; border-left: 4px solid ${config.accent_color || defaultConfig.accent_color};">
+            <p class="font-semibold mb-2" style="font-size: ${baseSize}px; font-family: ${fontStack};">
+              📧 Nota importante sobre los correos:
+            </p>
+            <p style="font-size: ${baseSize * 0.9}px; opacity: 0.9; font-family: ${fontStack};">
+              Los participantes se guardan en Supabase. El sorteo y el envío de correos se hacen desde Netlify Functions (servidor), para mantener seguras las claves y automatizar el proceso.
+            </p>
+          </div>
+        </div>
+      `;
+
+      // Form submit
+      const formulario = document.getElementById("formulario-inscripcion");
+      if (formulario) formulario.addEventListener("submit", agregarParticipante);
+
+      // Eliminar buttons
+      document.querySelectorAll("[data-id]").forEach(boton => {
+        boton.addEventListener("click", (e) => {
+          const id = e.target.getAttribute("data-id");
+          const participante = participantes.find(p => p.id === id);
+          if (participante) eliminarParticipante(participante);
+        });
+      });
+
+      // Admin panel listeners
+      const adminPassEl = document.getElementById("admin-pass");
+      if (adminPassEl) {
+        adminPassEl.addEventListener("input", (e) => {
+          adminPassCache = e.target.value;
+        });
+      }
+
+      const btnSortear = document.getElementById("btn-sortear");
+      if (btnSortear) btnSortear.addEventListener("click", sortearAmigoSecreto);
+
+      const btnEnviar = document.getElementById("btn-enviar");
+      if (btnEnviar) btnEnviar.addEventListener("click", enviarCorreos);
+
+      // Carrusel fotos
+      const prevBtn = document.getElementById("prev-btn");
+      const nextBtn = document.getElementById("next-btn");
+
+      if (prevBtn) {
+        prevBtn.addEventListener("click", () => {
+          currentSlide = (currentSlide - 1 + familyPhotos.length) % familyPhotos.length;
+          updateCarousel();
+        });
+      }
+
+      if (nextBtn) {
+        nextBtn.addEventListener("click", () => {
+          currentSlide = (currentSlide + 1) % familyPhotos.length;
+          updateCarousel();
+        });
+      }
+
+      document.querySelectorAll(".carousel-dot").forEach(dot => {
+        dot.addEventListener("click", (e) => {
+          currentSlide = parseInt(e.target.getAttribute("data-index"));
+          updateCarousel();
+        });
+      });
+
+      // Carrusel familiar
+      const familyPrevBtn = document.getElementById("family-prev-btn");
+      const familyNextBtn = document.getElementById("family-next-btn");
+
+      if (familyPrevBtn) {
+        familyPrevBtn.addEventListener("click", () => {
+          currentFamilySlide = (currentFamilySlide - 1 + familyMembers.length) % familyMembers.length;
+          updateFamilyCarousel();
+        });
+      }
+
+      if (familyNextBtn) {
+        familyNextBtn.addEventListener("click", () => {
+          currentFamilySlide = (currentFamilySlide + 1) % familyMembers.length;
+          updateFamilyCarousel();
+        });
+      }
+
+      document.querySelectorAll(".family-carousel-dot").forEach(dot => {
+        dot.addEventListener("click", (e) => {
+          currentFamilySlide = parseInt(e.target.getAttribute("data-index"));
+          updateFamilyCarousel();
+        });
+      });
+
+      crearCoposDeNieve();
+    }
+
+    function updateCarousel() {
+      const config = window.elementSdk?.config || defaultConfig;
+      const emojiEl = document.getElementById("carousel-emoji");
+      const textEl = document.getElementById("carousel-text");
+      const contentEl = document.querySelector(".carousel-content");
+
+      if (contentEl) {
+        contentEl.style.animation = 'none';
+        setTimeout(() => { contentEl.style.animation = ''; }, 10);
+      }
+
+      if (emojiEl && textEl) {
+        emojiEl.textContent = familyPhotos[currentSlide].emoji;
+        textEl.textContent = familyPhotos[currentSlide].text;
+      }
+
+      document.querySelectorAll(".carousel-dot").forEach((dot, index) => {
+        dot.style.backgroundColor = index === currentSlide
+          ? (config.primary_color || defaultConfig.primary_color)
+          : (config.text_color || defaultConfig.text_color) + "40";
+      });
+    }
+
+    function updateFamilyCarousel() {
+      const config = window.elementSdk?.config || defaultConfig;
+      const emojiEl = document.getElementById("family-carousel-emoji");
+      const textEl = document.getElementById("family-carousel-text");
+      const descEl = document.getElementById("family-carousel-description");
+      const contentEl = document.querySelector(".family-carousel-content");
+
+      if (contentEl) {
+        contentEl.style.animation = 'none';
+        setTimeout(() => { contentEl.style.animation = ''; }, 10);
+      }
+
+      if (emojiEl && textEl && descEl) {
+        emojiEl.textContent = familyMembers[currentFamilySlide].emoji;
+        textEl.textContent = familyMembers[currentFamilySlide].text;
+        descEl.textContent = familyMembers[currentFamilySlide].description;
+      }
+
+      document.querySelectorAll(".family-carousel-dot").forEach((dot, index) => {
+        dot.style.backgroundColor = index === currentFamilySlide
+          ? (config.primary_color || defaultConfig.primary_color)
+          : (config.text_color || defaultConfig.text_color) + "40";
+      });
+    }
+
+    async function onConfigChange(config) { renderApp(); }
+
+    const element = {
+      defaultConfig,
+      onConfigChange,
+      mapToCapabilities: (config) => ({
+        recolorables: [
+          { get: () => config.background_color || defaultConfig.background_color,
+            set: (value) => { config.background_color = value; window.elementSdk.setConfig({ background_color: value }); } },
+          { get: () => config.card_background || defaultConfig.card_background,
+            set: (value) => { config.card_background = value; window.elementSdk.setConfig({ card_background: value }); } },
+          { get: () => config.text_color || defaultConfig.text_color,
+            set: (value) => { config.text_color = value; window.elementSdk.setConfig({ text_color: value }); } },
+          { get: () => config.primary_color || defaultConfig.primary_color,
+            set: (value) => { config.primary_color = value; window.elementSdk.setConfig({ primary_color: value }); } },
+          { get: () => config.accent_color || defaultConfig.accent_color,
+            set: (value) => { config.accent_color = value; window.elementSdk.setConfig({ accent_color: value }); } }
+        ],
+        borderables: [],
+        fontEditable: {
+          get: () => config.font_family || defaultConfig.font_family,
+          set: (value) => { config.font_family = value; window.elementSdk.setConfig({ font_family: value }); }
+        },
+        fontSizeable: {
+          get: () => config.font_size || defaultConfig.font_size,
+          set: (value) => { config.font_size = value; window.elementSdk.setConfig({ font_size: value }); }
+        }
+      }),
+      mapToEditPanelValues: (config) => new Map([
+        ["titulo_principal", config.titulo_principal || defaultConfig.titulo_principal],
+        ["nombre_familia", config.nombre_familia || defaultConfig.nombre_familia],
+        ["descripcion_familia", config.descripcion_familia || defaultConfig.descripcion_familia],
+        ["fecha_sorteo", config.fecha_sorteo || defaultConfig.fecha_sorteo],
+        ["monto_regalo", config.monto_regalo || defaultConfig.monto_regalo],
+        ["lugar_entrega", config.lugar_entrega || defaultConfig.lugar_entrega]
+      ])
+    };
+
+    if (window.elementSdk) window.elementSdk.init(element);
+
+    inicializarApp();
+  </script>
+
+  <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9ac994b5527de00f',t:'MTc2NTUwNDMzMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
+ </body>
+</html>

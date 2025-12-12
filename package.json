@@ -1,0 +1,9 @@
+{
+  "name": "amigo-secreto",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.87.1",
+    "resend": "^4.0.0"
+  }
+}
