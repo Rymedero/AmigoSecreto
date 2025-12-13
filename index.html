@@ -102,6 +102,14 @@
       send: "/.netlify/functions/send-emails"
     };
 
+    function precargarImagenesFamilia() {
+      familyMembers.forEach(member => {
+        const img = new Image();
+        img.src = member.image;
+      });
+    }
+
+
     async function fetchJSON(url, options = {}) {
       const resp = await fetch(url, options);
       let data = null;
@@ -124,6 +132,7 @@
       } catch (e) {
         mostrarMensaje("No se pudo cargar la lista. Revisa tu despliegue en Netlify.", "error");
       }
+      precargarImagenesFamilia(); 
       renderApp();
     }
 
@@ -365,6 +374,7 @@
                     id="family-carousel-image"
                     src="${familyMembers[0].image}"
                     alt="${familyMembers[0].text}"
+                    loading="eager"
                     style="max-height: 260px; object-fit: cover;"
                     class="mx-auto rounded-xl shadow-lg"
                   />
