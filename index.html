@@ -55,9 +55,9 @@
       titulo_principal: "🎄 Amigo Secreto Navideño 🎄",
       nombre_familia: "Familia CaRuReHeMe CA",
       descripcion_familia: "Una familia unida que ama celebrar la Navidad juntos, compartiendo risas, amor y momentos inolvidables cada año. 🎅❤️",
-      fecha_sorteo: "24 de diciembre, 2024",
-      monto_regalo: "$500 - $1000 MXN",
-      lugar_entrega: "Casa de la Abuela"
+      fecha_sorteo: "16 de diciembre, 2025",
+      monto_regalo: "Regala con el corazón, cualquier regalo dado con cariño es perfecto",
+      lugar_entrega: "Casa de Mercedes Km 18"
     };
 
     let currentSlide = 0;
@@ -65,19 +65,25 @@
 
     const familyPhotos = [
       { emoji: "🎄", text: "Navidad en Familia" },
-      { emoji: "🎅", text: "Santa visitando" },
-      { emoji: "🎁", text: "Intercambio de Regalos" },
+      { emoji: "🎶", text: "Escuchando gaitas" },
       { emoji: "🍽️", text: "Cena Navideña" },
-      { emoji: "⭐", text: "Decorando el Árbol" }
+      { emoji: "🎁", text: "Intercambio de Regalos" },
+      { emoji: "⭐", text: "Pidiendo Deseos" }
     ];
 
+    // ✅ CAMBIO: ahora usa "image" en vez de "emoji"
+    // 📌 Pon tus imágenes en /images (misma carpeta que index.html)
     const familyMembers = [
-      { emoji: "👨‍👩‍👧‍👦", text: "Familia reunida", description: "Todos juntos en Navidad" },
-      { emoji: "👵", text: "Abuela", description: "El corazón de la familia" },
-      { emoji: "👴", text: "Abuelo", description: "Contador de historias navideñas" },
-      { emoji: "👨‍👩‍👧", text: "Los padres", description: "Organizadores del intercambio" },
-      { emoji: "👧👦", text: "Los primos", description: "La alegría de la reunión" },
-      { emoji: "🐕", text: "Nuestra mascota", description: "El miembro más peludo" }
+      { image: "/images/Family.jpg", text: "Familia reunida", description: "Todos juntos en Navidad" },
+      { image: "/images/CorazonFamily.jpg",  text: "El corazón de la familia",         description: "La raíz que nos sostiene y el amor que nos reúne en cada celebración." },
+      { image: "/images/Alma.jpg",  text: "El Alma de la Familia",         description: "Quienes convierten cada momento juntos en un recuerdo especial." },
+      { image: "/images/Primos.jpg",  text: "Primos",     description: "Unidos por el cariño y una historia compartida desde siempre." },
+      { image: "/images/Primas2.jpg",  text: "Primos",     description: "Unidos por el cariño y una historia compartida desde siempre." },
+      { image: "/images/Mujeres.jpg",  text: "Lazos que continúan",     description: "Fuerza, unión y amor que se transmiten de generación en generación." },
+      { image: "/images/Family2.jpg",  text: "Momentos que nos unen",     description: "Risas, abrazos y tiempo compartido en familia." },
+      { image: "/images/Family3.jpg",  text: "Celebrando en familia",     description: "Compartiendo amor, risas y tradiciones que nos unen." },
+      { image: "/images/Recuerdo.jpg", text: "Siempre con Nosotros",description: "Su amor y sus enseñanzas siguen viviendo en cada uno de nosotros." },
+      { image: "/images/Dog.jpg",  text: "Un miembro más de la familia",     description: "Siempre presente, siempre acompañando." }
     ];
 
     // Estado
@@ -354,12 +360,19 @@
             <div class="relative">
               <div id="family-carousel-container" class="flex items-center justify-center rounded-lg" style="height: 400px; background-color: ${config.background_color || defaultConfig.background_color};">
                 <div class="text-center p-8 family-carousel-content">
-                  <div style="font-size: 100px;" id="family-carousel-emoji">👨‍👩‍👧‍👦</div>
+                  <!-- ✅ CAMBIO: imagen en vez de emoji (mismo sitio, mismas clases, mismo flujo) -->
+                  <img
+                    id="family-carousel-image"
+                    src="${familyMembers[0].image}"
+                    alt="${familyMembers[0].text}"
+                    style="max-height: 260px; object-fit: cover;"
+                    class="mx-auto rounded-xl shadow-lg"
+                  />
                   <p class="mt-4 font-semibold" style="font-size: ${baseSize * 1.2}px; color: ${config.primary_color || defaultConfig.primary_color}; font-family: ${fontStack};" id="family-carousel-text">
-                    Familia reunida
+                    ${familyMembers[0].text}
                   </p>
                   <p class="mt-2" style="font-size: ${baseSize * 0.9}px; opacity: 0.8; font-family: ${fontStack};" id="family-carousel-description">
-                    Puedes agregar tus propias fotos familiares aquí
+                    ${familyMembers[0].description}
                   </p>
                 </div>
               </div>
@@ -389,15 +402,19 @@
               </li>
               <li class="flex items-start gap-2">
                 <span style="color: ${config.accent_color || defaultConfig.accent_color};">✓</span>
-                <span>Recibirás un correo con el nombre de tu amigo secreto</span>
+                <span>Recibirás un correo con el nombre de tu amigo secreto (Revisar Spam)</span>
               </li>
               <li class="flex items-start gap-2">
                 <span style="color: ${config.accent_color || defaultConfig.accent_color};">✓</span>
-                <span>Monto sugerido: <strong>${config.monto_regalo || defaultConfig.monto_regalo}</strong></span>
+                <span><strong>${config.monto_regalo || defaultConfig.monto_regalo}</strong></span>
               </li>
               <li class="flex items-start gap-2">
                 <span style="color: ${config.accent_color || defaultConfig.accent_color};">✓</span>
                 <span>Lugar de entrega: <strong>${config.lugar_entrega || defaultConfig.lugar_entrega}</strong></span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span style="color: ${config.accent_color || defaultConfig.accent_color};">✓</span>
+                <span>Quien adivine a su amigo secreto se llevará un premio</span>
               </li>
               <li class="flex items-start gap-2">
                 <span style="color: ${config.accent_color || defaultConfig.accent_color};">✓</span>
@@ -525,28 +542,17 @@
                   📩 Enviar correos
                 </button>
               </div>
-
-              <div class="p-3 rounded-lg" style="background-color: ${config.background_color || defaultConfig.background_color};">
-                <p class="font-semibold" style="font-size: ${baseSize * 0.95}px; font-family: ${fontStack};">
-                  Sorteo ID:
-                  <span style="opacity: 0.85; font-weight: normal;">
-                    ${ultimoSorteoId ? ultimoSorteoId : "Aún no has sorteado"}
-                  </span>
-                </p>
-                <p style="font-size: ${baseSize * 0.85}px; opacity: 0.75; font-family: ${fontStack};">
-                  (Si recargas la página y no aparece, puedes enviarlo pegándolo cuando te lo pida.)
-                </p>
-              </div>
             </div>
           </div>
 
           <!-- Nota sobre envío de correos -->
           <div class="mt-8 p-4 rounded-lg" style="background-color: ${config.accent_color || defaultConfig.accent_color}20; border-left: 4px solid ${config.accent_color || defaultConfig.accent_color};">
             <p class="font-semibold mb-2" style="font-size: ${baseSize}px; font-family: ${fontStack};">
-              📧 Nota importante sobre los correos:
+              🎄 Nota:
             </p>
             <p style="font-size: ${baseSize * 0.9}px; opacity: 0.9; font-family: ${fontStack};">
-              Los participantes se guardan en Supabase. El sorteo y el envío de correos se hacen desde Netlify Functions (servidor), para mantener seguras las claves y automatizar el proceso.
+             Anímate a participar. La Navidad es un momento para compartir, regalar sonrisas y crear recuerdos en familia.
+    No importa el regalo, lo importante es el cariño con el que se da. ✨
             </p>
           </div>
         </div>
@@ -657,7 +663,7 @@
 
     function updateFamilyCarousel() {
       const config = window.elementSdk?.config || defaultConfig;
-      const emojiEl = document.getElementById("family-carousel-emoji");
+      const imgEl = document.getElementById("family-carousel-image");
       const textEl = document.getElementById("family-carousel-text");
       const descEl = document.getElementById("family-carousel-description");
       const contentEl = document.querySelector(".family-carousel-content");
@@ -667,8 +673,10 @@
         setTimeout(() => { contentEl.style.animation = ''; }, 10);
       }
 
-      if (emojiEl && textEl && descEl) {
-        emojiEl.textContent = familyMembers[currentFamilySlide].emoji;
+      // ✅ CAMBIO: actualiza imagen + texto + descripción
+      if (imgEl && textEl && descEl) {
+        imgEl.src = familyMembers[currentFamilySlide].image;
+        imgEl.alt = familyMembers[currentFamilySlide].text;
         textEl.textContent = familyMembers[currentFamilySlide].text;
         descEl.textContent = familyMembers[currentFamilySlide].description;
       }
